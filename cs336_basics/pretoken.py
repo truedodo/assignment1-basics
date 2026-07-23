@@ -29,7 +29,7 @@ def train_bpe(
                                         pretokens[key]+=value
         # return pretokens
 
-        pretoken_list = list(pretokens.keys())
+        pretoken_list = [list(pt) for pt in pretokens.keys()]
         pretoken_freqs = list(pretokens.values())
 
         pair_count = defaultdict(int)
@@ -47,7 +47,7 @@ def train_bpe(
         for i in range(0, 256):
                 vocab[i] = bytes([i])
         for i, spl in enumerate(special_tokens):
-                vocab[i+255] = spl
+                vocab[i+256] = spl.encode("utf-8")
         current_size = 256 + len(special_tokens)
         # initialize merges array
         merges = []
@@ -61,20 +61,30 @@ def train_bpe(
                 current_size+=1
 
                 for loc in pair_loc[greatest]:
-                        for pair in pairwise(pretoken_list[loc]):
-                                if pair==greatest:
+                        symbols = pretoken_list[loc]
+                        freq = pretoken_freqs[loc]
+                        j = 0
+                        while j < (len(symbols)-1):
+                                if (symbols[j],symbols[j+1])==greatest:
+                                        if(j > 0):
+                                                # remove counts from pair_count
+                                                pair_count[(symbols[j-1],symbols[j])] -= freq
+                                        if j < len(symbols)-2:
+                                                pair_count[(symbols[j+1],symbols[j+2])] -= freq
                                         # merge
-                                        continue
-
-                        
-                        # rerun to add new pairs
-                        for pair in loc:
-                             continue
-
+                                        symbols[j:j+2] = [symbols[j] + symbols[j+1]]
+                                        if j>0:
+                                                pair_count[(symbols[j-1], symbols[j])] += freq
+                                                pair_loc[(symbols[j-1], symbols[j])].add(loc)
+                                        if j+1 < len(symbols):
+                                                pair_count[(symbols[j], symbols[j+1])] += freq
+                                                pair_loc[(symbols[j], symbols[j+1])].add(loc)
+                                        j += 1
+                                else:
+                                        j+=1
                 # remove most freq from pair_count, pair_loc also
                 pair_count.pop(greatest, None)
                 pair_loc.pop(greatest, None)
-                continue
 
         return vocab, merges
 
