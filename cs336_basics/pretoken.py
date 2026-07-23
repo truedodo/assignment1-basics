@@ -5,6 +5,7 @@ from typing import BinaryIO
 from functools import partial
 import regex as re
 from collections import defaultdict
+from itertools import pairwise
 
 def train_bpe(
         input_path: str | os.PathLike,
@@ -27,49 +28,44 @@ def train_bpe(
                                 for key, value in chunk_pretoken.items():
                                         pretokens[key]+=value
         # return pretokens
+
+        pretoken_list = list(pretokens.keys())
+        pretoken_freqs = list(pretokens.values())
+
         pair_count = defaultdict(int)
         pair_loc = defaultdict(set)
         for i, pretoken in enumerate(pretokens):
                 for pair in zip(pretoken, pretoken[1:]):
                         pair_count[pair] += pretokens[pretoken]
                         pair_loc[pair].add(i)
-        # after this loop, pretokens variable is unnecessary now
+
         
+                
         current_size = 0
         # initialize vocab array
         vocab = defaultdict(bytes)
-        for i in range(0, 127):
-                vocab[i] = chr(i).encode("utf-8")
-        vocab[128] = b"<|endoftext|>"
-        current_size=129
+        for i in range(0, 256):
+                vocab[i] = bytes([i])
+        for i, spl in enumerate(special_tokens):
+                vocab[i+255] = spl
+        current_size = 256 + len(special_tokens)
         # initialize merges array
         merges = []
         print(pair_count)
 
-        while current_size <= vocab_size:
+        while current_size < vocab_size:
                 # order all pairs
-                max_freq = max(pair_count.values())
-                most_freq = [k for k,v in pair_count.items() if v == max_freq]
-                greatest = sorted(most_freq)[-1]
-                greatest = max(pair_count, key=lambda k: (pair_count[k], k)) # lexicographically greatest
-                # now for most freq,
-                # add to vocab array
+                greatest = max(pair_count, key=lambda k: (pair_count[k], k)) # lexicographical
                 vocab[current_size]=greatest[0]+greatest[1]
-                current_size+=1
-                # add to merges array
                 merges.append(greatest)
+                current_size+=1
 
                 for loc in pair_loc[greatest]:
-                        for pair in loc:
+                        for pair in pairwise(pretoken_list[loc]):
                                 if pair==greatest:
                                         # merge
-                                        
                                         continue
-                                if (greatest[0] or greatest[1]) in pair:
-                                        pair_count[pair]-=1
-                                        
-                                        # delete count
-                                        continue
+
                         
                         # rerun to add new pairs
                         for pair in loc:
@@ -79,6 +75,8 @@ def train_bpe(
                 pair_count.pop(greatest, None)
                 pair_loc.pop(greatest, None)
                 continue
+
+        return vocab, merges
 
 
 def chunk_pretokenize(
