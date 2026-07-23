@@ -7,6 +7,8 @@ import regex as re
 from collections import defaultdict
 from itertools import pairwise
 from tqdm import tqdm
+import time
+import resource
 
 def train_bpe(
         input_path: str | os.PathLike,
@@ -52,7 +54,7 @@ def train_bpe(
         current_size = 256 + len(special_tokens)
         # initialize merges array
         merges = []
-        print(pair_count)
+        # print(pair_count)
 
         pbar = tqdm(total=vocab_size - current_size, desc="BPE Merges")
 
@@ -118,10 +120,21 @@ def chunk_pretokenize(
                 return d
 
 def train_bpe_tinystories():
-        return train_bpe("data/owt_train.txt", 32000, ["<|endoftext|>"])
+        return train_bpe("data/TinyStoriesV2-GPT4-train.txt", 10000, ["<|endoftext|>"])
 
 def train_bpe_expts_owt():
         return train_bpe("data/TinyStoriesV2-GPT4-train.txt", 10000, ["<|endoftext|>"])
 
 if __name__ == "__main__":
-        print(train_bpe_tinystories())
+        start_time = time.time()
+
+        with open('outputs.txt', 'w') as f:
+                print(train_bpe_tinystories(), file=f)
+
+        end_time = time.time()
+        
+        print(f"Time taken: {end_time - start_time:.2f} seconds")
+
+        peak_memory_bytes = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
+        peak_memory_mb = peak_memory_bytes / (1024 * 1024)
+        print(f"Peak memory used: {peak_memory_mb:.2f} MB")
