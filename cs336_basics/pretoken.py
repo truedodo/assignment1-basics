@@ -1,11 +1,12 @@
 import os
-from pretokenization_example import find_chunk_boundaries
+from cs336_basics.pretokenization_example import find_chunk_boundaries
 from multiprocessing import Pool
 from typing import BinaryIO
 from functools import partial
 import regex as re
 from collections import defaultdict
 from itertools import pairwise
+from tqdm import tqdm
 
 def train_bpe(
         input_path: str | os.PathLike,
@@ -53,12 +54,15 @@ def train_bpe(
         merges = []
         print(pair_count)
 
+        pbar = tqdm(total=vocab_size - current_size, desc="BPE Merges")
+
         while current_size < vocab_size:
                 # order all pairs
                 greatest = max(pair_count, key=lambda k: (pair_count[k], k)) # lexicographical
                 vocab[current_size]=greatest[0]+greatest[1]
                 merges.append(greatest)
                 current_size+=1
+                pbar.update(1)
 
                 for loc in pair_loc[greatest]:
                         symbols = pretoken_list[loc]
@@ -113,7 +117,11 @@ def chunk_pretokenize(
                                 d[key]+=1
                 return d
 
+def train_bpe_tinystories():
+        return train_bpe("data/owt_train.txt", 32000, ["<|endoftext|>"])
 
+def train_bpe_expts_owt():
+        return train_bpe("data/TinyStoriesV2-GPT4-train.txt", 10000, ["<|endoftext|>"])
 
 if __name__ == "__main__":
-        print(train_bpe("/Users/dodo/code/llm/assignment1-basics/data/a.txt", 255, ["<|endoftext|>"]))
+        print(train_bpe_tinystories())
